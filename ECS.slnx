@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ECS/ECS.csproj" />
+  <Project Path="WindowsHost/WindowsHost.csproj" />
+</Solution>
