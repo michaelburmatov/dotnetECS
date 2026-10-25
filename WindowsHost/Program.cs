@@ -1,5 +1,6 @@
 ﻿using ECS.App.NativeStructures;
 using System;
+using WindowsHost.States;
 
 public static class Program
 {
@@ -44,5 +45,9 @@ public static class Program
                 Console.WriteLine(value);
             }
         }
+
+        var stateMachine = new AppStateMachine();
+        while (stateMachine.IsRunning)
+            stateMachine.Update();
     }
 }
