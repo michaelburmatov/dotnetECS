@@ -15,4 +15,8 @@
     <Folder Include="App\Architecture\GoF\Structural\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AbstractGoF\AbstractGoF.csproj" />
+  </ItemGroup>
+
 </Project>
