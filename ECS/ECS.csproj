@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Folder Include="App\Architecture\GoF\Behavioral\" />
     <Folder Include="App\Architecture\GoF\Creational\" />
     <Folder Include="App\Architecture\GoF\Structural\" />
   </ItemGroup>

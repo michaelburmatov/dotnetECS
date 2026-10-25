@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace ECS.App.Architecture.GoF.Behavioral.StatePattern
+namespace AbstractGoF.Behavioral.StatePattern
 {
     public abstract class StateMachine<T> where T : StateMachine<T>
     {

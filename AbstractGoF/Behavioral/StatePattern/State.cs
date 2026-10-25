@@ -1,4 +1,4 @@
-﻿namespace ECS.App.Architecture.GoF.Behavioral.StatePattern
+﻿namespace AbstractGoF.Behavioral.StatePattern
 {
     public abstract class State<T> where T : StateMachine<T>
     {

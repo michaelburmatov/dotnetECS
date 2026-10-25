@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AbstractGoF\AbstractGoF.csproj" />
     <ProjectReference Include="..\ECS\ECS.csproj" />
   </ItemGroup>
 

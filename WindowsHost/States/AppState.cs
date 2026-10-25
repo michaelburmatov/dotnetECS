@@ -1,4 +1,4 @@
-﻿using ECS.App.Architecture.GoF.Behavioral.StatePattern;
+﻿using AbstractGoF.Behavioral.StatePattern;
 using System;
 using System.Collections.Generic;
 using System.Text;
