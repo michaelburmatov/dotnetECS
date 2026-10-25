@@ -336,5 +336,67 @@ namespace ECS.App.NativeStructures
             if (!_buckets.IsCreated)
                 throw new InvalidOperationException("Native collection is not created or already disposed.");
         }
+
+        public Enumerator GetEnumerator() => new Enumerator(this);
+
+        public struct Enumerator : IDisposable
+        {
+            private readonly NativeArray<int> _buckets;
+            private readonly NativeArray<int> _hashes;
+            private readonly NativeArray<int> _next;
+            private readonly NativeArray<TKey> _keys;
+            private readonly NativeArray<TValue> _values;
+            private int _index;
+            private KeyValuePair<TKey, TValue> _current;
+
+            internal Enumerator(NativeDictionary<TKey, TValue> dictionary)
+            {
+                _buckets = dictionary._buckets;
+                _hashes = dictionary._hashes;
+                _next = dictionary._next;
+                _keys = dictionary._keys;
+                _values = dictionary._values;
+                _index = 0;
+                _current = default;
+            }
+
+            public KeyValuePair<TKey, TValue> Current => _current;
+
+            public bool MoveNext()
+            {
+                if (!_buckets.IsCreated)
+                    return false;
+
+                int capacity = _buckets.Length;
+
+                while (_index < capacity)
+                {
+                    // Пропускаем пустые записи
+                    if (_hashes[_index] != -1)
+                    {
+                        _current = new KeyValuePair<TKey, TValue>(
+                            _keys[_index],
+                            _values[_index]
+                        );
+                        _index++;
+                        return true;
+                    }
+                    _index++;
+                }
+
+                return false;
+            }
+
+            public void Dispose()
+            {
+                // Итератор не владеет памятью, ничего освобождать не нужно
+            }
+
+            public void Reset()
+            {
+                _index = 0;
+                _current = default;
+            }
+        }
     }
 }
