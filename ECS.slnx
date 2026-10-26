@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="AbstractGoF/AbstractGoF.csproj" Id="be5732d5-390e-4e9a-9ba2-ae7ee88bc739" />
   <Project Path="ECS/ECS.csproj" />
+  <Project Path="POPS/POPS.csproj" Id="3e0b2d71-f4aa-4bfa-9f78-fa160175ceec" />
   <Project Path="WindowsHost/WindowsHost.csproj" />
 </Solution>
