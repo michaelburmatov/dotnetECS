@@ -6,7 +6,7 @@ namespace ECS.App.NativeStructures
     public unsafe struct NativeList<T> : IDisposable where T : unmanaged
     {
         private T* _ptr;
-        private int _length;
+        private uint _length;
         private int _capacity;
         private bool _isCreated;
 
@@ -21,7 +21,7 @@ namespace ECS.App.NativeStructures
             _isCreated = true;
         }
 
-        public int Length
+        public uint Length
         {
             get => _length;
             set => Resize(value);
@@ -59,7 +59,7 @@ namespace ECS.App.NativeStructures
             _ptr[_length++] = value;
         }
 
-        public void EnsureCapacity(int requiredCapacity)
+        public void EnsureCapacity(uint requiredCapacity)
         {
             CheckCreated();
 
@@ -100,7 +100,7 @@ namespace ECS.App.NativeStructures
             SetCapacityInternal(newCapacity);
         }
 
-        public void Resize(int newLength)
+        public void Resize(uint newLength)
         {
             CheckCreated();
 
@@ -119,7 +119,7 @@ namespace ECS.App.NativeStructures
             EnsureCapacity(newLength);
 
             if (newLength > _length)
-                NativeMemory.Zero(_ptr + _length, newLength - _length);
+                NativeMemory.Zero(_ptr + _length, (int)(newLength - _length));
 
             _length = newLength;
         }
@@ -190,7 +190,7 @@ namespace ECS.App.NativeStructures
             if (_length == 0)
                 return Span<T>.Empty;
 
-            return new Span<T>((void*)_ptr, _length);
+            return new Span<T>((void*)_ptr, (int)_length);
         }
 
         public void Dispose()

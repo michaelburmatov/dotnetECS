@@ -24,11 +24,20 @@ namespace ECS.App
 
         public void AddSystem<T>() where T : ISystemUpdate
         {
-
             //if (system is ISystemUpdate systemUpdate)
             //    systemsUpdate.Add(systemUpdate);
+        }
 
+        public Entity CreateEntity()
+        {
+            var entity = new Entity(_entities.Length);
+            _entities.Add(entity);
+            return entity;
+        }
 
+        public void AddComponent<T>(Entity entity, T componentData) where T : unmanaged
+        {
+            //ComponentConnector<T>
         }
     }
 }
