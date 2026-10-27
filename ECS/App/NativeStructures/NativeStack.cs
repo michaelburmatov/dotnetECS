@@ -213,7 +213,7 @@ namespace ECS.App.NativeStructures
             {
                 _buffer = stack._buffer;
                 _count = stack._count;
-                _index = _count; // Начинаем с вершины стека
+                _index = _count;
             }
 
             public T Current => _buffer[_index];

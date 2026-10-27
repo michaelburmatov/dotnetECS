@@ -6,11 +6,11 @@ namespace ECS.App
 {
     internal sealed class ManagedContainer<T> : IDisposable where T : unmanaged
     {
-        private NativeList<ComponentDataActivator<T>> _data;
+        private NativeList<ComponentDataBucket<T>> _data;
 
         public ManagedContainer(uint initialCapacity = 16)
         {
-            _data = new NativeList<ComponentDataActivator<T>>((int)initialCapacity);
+            _data = new NativeList<ComponentDataBucket<T>>((int)initialCapacity);
         }
 
         public uint Count => (uint)_data.Length;
@@ -41,6 +41,15 @@ namespace ECS.App
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public uint GetEntityParentIndex(uint index)
+        {
+            if (index >= _data.Length)
+                throw new ArgumentOutOfRangeException(nameof(index));
+
+            return _data[(int)index].entityParentIndex;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T GetDataRef(uint index)
         {
             if (index >= _data.Length)
@@ -65,18 +74,19 @@ namespace ECS.App
             return false;
         }
 
-        public uint AddComponent(T data)
+        public uint AddComponent(uint entityParentIndex, T data)
         {
-            var activator = new ComponentDataActivator<T>
+            var activator = new ComponentDataBucket<T>
             {
                 isActive = true,
-                componentData = data
+                componentData = data,
+                entityParentIndex = entityParentIndex
             };
             _data.Add(activator);
             return (uint)_data.Length - 1;
         }
 
-        public ReadOnlySpan<ComponentDataActivator<T>> GetAllData()
+        public ReadOnlySpan<ComponentDataBucket<T>> GetAllData()
         {
             return _data.AsSpan();
         }

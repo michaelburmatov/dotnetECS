@@ -7,11 +7,13 @@ namespace ECS.App
 {
     public sealed class ManagerECS : IDisposable
     {
-        private NativeDictionary<IntPtr, IntPtr> _containers;
+        private readonly NativeDictionary<IntPtr, IntPtr> _containers;
+        private readonly ConnectorsContainer _connectorsContainer;
 
         public ManagerECS(uint initialCapacity = 16)
         {
             _containers = new NativeDictionary<IntPtr, IntPtr>((int)initialCapacity);
+            _connectorsContainer = new ConnectorsContainer();
         }
 
         public void Dispose()

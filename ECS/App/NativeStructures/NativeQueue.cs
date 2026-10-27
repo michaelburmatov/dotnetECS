@@ -127,14 +127,12 @@ namespace ECS.App.NativeStructures
             if (_count == 0)
                 return;
 
-            // Очищаем память
             if (_head < _tail)
             {
                 NativeMemory.Zero(_buffer + _head, (int)_count);
             }
             else
             {
-                // Кольцевой буфер: два сегмента
                 var firstSegment = _capacity - _head;
                 var secondSegment = _tail;
 
@@ -155,14 +153,11 @@ namespace ECS.App.NativeStructures
             if (_count == 0)
                 return ReadOnlySpan<T>.Empty;
 
-            // В кольцевом буфере данные могут быть не contiguous
-            // Возвращаем span только если данные линейны
             if (_head < _tail)
             {
                 return new ReadOnlySpan<T>((void*)(_buffer + _head), (int)_count);
             }
 
-            // Если кольцевой, возвращаем только первый сегмент
             var firstSegment = _capacity - _head;
             return new ReadOnlySpan<T>((void*)(_buffer + _head), (int)firstSegment);
         }
