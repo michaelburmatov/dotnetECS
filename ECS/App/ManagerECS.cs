@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace ECS.App
 {
-    public sealed class ManagerECS : IDisposable
+    public struct ManagerECS : IDisposable
     {
         private readonly NativeDictionary<IntPtr, IntPtr> _containers;
         private readonly ConnectorsContainer _connectorsContainer;
@@ -68,6 +68,13 @@ namespace ECS.App
                 throw new InvalidOperationException($"Container for type {typeof(T).Name} not found");
 
             return ref container.GetDataRef(index);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddComponent<T>(Entity entity, T componentData) where T : unmanaged
+        {
+            var container = GetOrCreateContainer<T>();
+            container.AddComponent(entity.id, componentData);
         }
 
 

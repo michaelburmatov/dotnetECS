@@ -2,6 +2,6 @@
 {
     public interface ISystemUpdate
     {
-        void Update();
+        void Update(ref ManagerECS manager);
     }
 }

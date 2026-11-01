@@ -2,6 +2,6 @@
 {
     public interface ISystemEnter
     {
-        void Enter();
+        void Enter(ref ManagerECS manager);
     }
 }
