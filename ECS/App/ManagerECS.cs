@@ -29,6 +29,7 @@ namespace ECS.App
                 }
             }
 
+            _connectorsContainer.Dispose();
             _containers.Dispose();
         }
 
@@ -48,8 +49,6 @@ namespace ECS.App
             return false;
         }
 
-        
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetComponentData<T>(out T componentData, uint index) where T : unmanaged
         {
@@ -59,6 +58,37 @@ namespace ECS.App
             }
             componentData = default;
             return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool HaveAdjacentComponentData<TOriginal, TAdjacent>(uint indexOriginal)
+            where TOriginal : unmanaged
+            where TAdjacent : unmanaged
+        {
+            if (!TryGetContainer<TOriginal>(out var container))
+                throw new InvalidOperationException($"Container for type {typeof(TOriginal).Name} not found");
+            if (!TryGetContainer<TAdjacent>(out var containerAdjacent))
+                throw new InvalidOperationException($"Container for type {typeof(TAdjacent).Name} not found");
+
+            var parentIndex = container.GetEntityParentIndex(indexOriginal);
+            return _connectorsContainer.TryGetComponent<TAdjacent>(parentIndex, out var adjacentIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref TAdjacent GetAdjacentComponentDataRef<TOriginal, TAdjacent>(uint indexOriginal)
+            where TOriginal : unmanaged
+            where TAdjacent : unmanaged
+        {
+            if (!TryGetContainer<TOriginal>(out var container))
+                throw new InvalidOperationException($"Container for type {typeof(TOriginal).Name} not found");
+            if (!TryGetContainer<TAdjacent>(out var containerAdjacent))
+                throw new InvalidOperationException($"Container for type {typeof(TAdjacent).Name} not found");
+
+            var parentIndex = container.GetEntityParentIndex(indexOriginal);
+            if (_connectorsContainer.TryGetComponent<TAdjacent>(parentIndex, out var adjacentIndex))
+                return ref containerAdjacent.GetDataRef(adjacentIndex);
+
+            throw new InvalidOperationException($"{typeof(TOriginal).Name} dont have {typeof(TAdjacent).Name} as adjacent");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -74,7 +104,8 @@ namespace ECS.App
         public void AddComponent<T>(Entity entity, T componentData) where T : unmanaged
         {
             var container = GetOrCreateContainer<T>();
-            container.AddComponent(entity.id, componentData);
+            var cdIndex = container.AddComponent(entity.id, componentData);
+            _connectorsContainer.AddComponent<T>(entity.id, cdIndex);
         }
 
 

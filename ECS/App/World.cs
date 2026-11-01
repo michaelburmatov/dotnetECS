@@ -56,7 +56,6 @@ namespace ECS.App
         public void AddComponent<T>(Entity entity, T componentData) where T : unmanaged
         {
             _manager.AddComponent<T>(entity, componentData);
-            //ComponentConnector<T>
         }
 
         public void Dispose()

@@ -21,6 +21,16 @@ namespace WindowsHost.ECS.Systems
                     ref TestData data = ref manager.GetComponentDataRef<TestData>(i);
                     data.FloatData += (1+i) * 1.432f;
                     data.Integerdata += (int)((1+i) * 2);
+
+                    Console.WriteLine(data.ToString());
+
+                    if (manager.HaveAdjacentComponentData<TestData, TestAdjacentData>(i))
+                    {
+                        ref var adjacent = ref manager.GetAdjacentComponentDataRef<TestData, TestAdjacentData>(i);
+                        adjacent.FloatData += (1 + i) * 0.5f;
+
+                        Console.WriteLine(adjacent.ToString());
+                    }
                 }
             }
 

@@ -4,40 +4,50 @@ using System.Runtime.InteropServices;
 
 namespace ECS.App
 {
-    internal class ConnectorsContainer
+    internal class ConnectorsContainer : IDisposable
     {
         private NativeDictionary<IntPtr, IntPtr> _containersConnections;
 
-        public void AddComponent<T>(Entity entity, T componentData) where T : unmanaged
+        public ConnectorsContainer()
         {
-            var container = GetOrCreateContainer<T>();
-            container[entity] = componentData;
+            _containersConnections = new NativeDictionary<IntPtr, IntPtr>(16);
         }
-        public bool TryGetComponent<T>(Entity entity, out T componentData) where T : unmanaged
+
+        public void AddComponent<T>(uint entityIndex, uint componentDataIndex) where T : unmanaged
         {
             var container = GetOrCreateContainer<T>();
-            return container.TryGetValue(entity, out componentData);
+            container[entityIndex] = componentDataIndex;
+        }
+        public bool TryGetComponent<T>(uint entityIndex, out uint componentDataIndex) where T : unmanaged
+        {
+            var container = GetOrCreateContainer<T>();
+            return container.TryGetValue(entityIndex, out componentDataIndex);
         }
 
         private static IntPtr GetTypeHandle<T>() => typeof(T).TypeHandle.Value;
 
-        private NativeDictionary<Entity, T> GetOrCreateContainer<T>() where T : unmanaged
+        private NativeDictionary<uint, uint> GetOrCreateContainer<T>() where T : unmanaged
         {
             var typeHandle = GetTypeHandle<T>();
 
             if (_containersConnections.TryGetValue(typeHandle, out var ptr))
             {
                 var handleFinded = GCHandle.FromIntPtr(ptr);
-                return (NativeDictionary<Entity, T>)handleFinded.Target;
+                return (NativeDictionary<uint, uint>)handleFinded.Target;
             }
 
-            var container = new NativeDictionary<Entity, T>();
+            var container = new NativeDictionary<uint, uint>(16);
             var handle = GCHandle.Alloc(container, GCHandleType.Normal);
             var containerPtr = GCHandle.ToIntPtr(handle);
 
             _containersConnections.Add(typeHandle, containerPtr);
 
             return container;
+        }
+
+        public void Dispose()
+        {
+            _containersConnections.Dispose();
         }
     }
 }
