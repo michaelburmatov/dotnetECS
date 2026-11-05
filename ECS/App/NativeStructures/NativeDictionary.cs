@@ -1,18 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
 
 namespace ECS.App.NativeStructures
 {
     /// <summary>
     /// Высокопроизводительный словарь для неуправляемых типов (unmanaged),
-    /// использующий открытую адресацию с цепочками (separate chaining).
+    /// использующий separate chaining для обработки коллизий.
     /// 
-    /// ⚠️ НЕ ЯВЛЯЕТСЯ ПОТОКОБЕЗОПАСНЫМ!
-    /// Параллельные операции записи (Add/Remove/set) из разных потоков
-    /// приведут к повреждению внутренней структуры (циклы в _next)
-    /// и бесконечным циклам при поиске.
+    /// ⚠️ ВАЖНО:
+    /// - Это struct! Не передавайте его по значению! Используйте ref или храните указатель.
+    /// - НЕ является потокобезопасным.
+    /// - НЕ модифицируйте словарь во время итерации (foreach).
     /// </summary>
+    [DebuggerDisplay("Count = {Count}, Capacity = {Capacity}")]
     public struct NativeDictionary<TKey, TValue> : IDisposable
         where TKey : unmanaged
         where TValue : unmanaged
@@ -27,6 +29,11 @@ namespace ECS.App.NativeStructures
         private int _version;
         private bool _isDisposed;
 
+#if UNITY_EDITOR || DEBUG
+        private readonly int _debugId;
+        private static int _nextDebugId = 0;
+#endif
+
         public NativeDictionary(int capacity)
         {
             if (capacity < 0)
@@ -34,6 +41,10 @@ namespace ECS.App.NativeStructures
 
             _isDisposed = false;
             _version = 0;
+
+#if UNITY_EDITOR || DEBUG
+            _debugId = System.Threading.Interlocked.Increment(ref _nextDebugId);
+#endif
 
             int cap = HashHelpers.GetHashCapacity(capacity);
 
@@ -71,18 +82,15 @@ namespace ECS.App.NativeStructures
             get
             {
                 CheckCreated();
-
                 int index = FindIndex(key);
                 if (index < 0)
                     throw new KeyNotFoundException($"The given key '{key}' was not present in the dictionary.");
-
                 return _values[index];
             }
 
             set
             {
                 CheckCreated();
-
                 int index = FindIndex(key);
                 if (index >= 0)
                 {
@@ -90,7 +98,6 @@ namespace ECS.App.NativeStructures
                     _version++;
                     return;
                 }
-
                 AddInternal(key, value);
             }
         }
@@ -105,7 +112,6 @@ namespace ECS.App.NativeStructures
         public bool TryAdd(TKey key, TValue value)
         {
             CheckCreated();
-
             int hash = GetHashCode(key);
 
             if (_buckets.Length > 0)
@@ -130,7 +136,6 @@ namespace ECS.App.NativeStructures
             return true;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void AddInternal(TKey key, TValue value)
         {
             int hash = GetHashCode(key);
@@ -176,14 +181,12 @@ namespace ECS.App.NativeStructures
         public bool TryGetValue(TKey key, out TValue value)
         {
             CheckCreated();
-
             int index = FindIndex(key);
             if (index >= 0)
             {
                 value = _values[index];
                 return true;
             }
-
             value = default;
             return false;
         }
@@ -198,7 +201,6 @@ namespace ECS.App.NativeStructures
             int hash = GetHashCode(key);
             int bucket = hash & (_buckets.Length - 1);
             var comparer = EqualityComparer<TKey>.Default;
-
             int previous = -1;
 
             for (int i = _buckets[bucket]; i >= 0; i = _next[i])
@@ -208,7 +210,6 @@ namespace ECS.App.NativeStructures
                     RemoveEntry(i, previous, bucket);
                     return true;
                 }
-
                 previous = i;
             }
 
@@ -228,7 +229,6 @@ namespace ECS.App.NativeStructures
             int hash = GetHashCode(key);
             int bucket = hash & (_buckets.Length - 1);
             var comparer = EqualityComparer<TKey>.Default;
-
             int previous = -1;
 
             for (int i = _buckets[bucket]; i >= 0; i = _next[i])
@@ -239,7 +239,6 @@ namespace ECS.App.NativeStructures
                     RemoveEntry(i, previous, bucket);
                     return true;
                 }
-
                 previous = i;
             }
 
@@ -293,15 +292,12 @@ namespace ECS.App.NativeStructures
         public void EnsureCapacity(int capacity)
         {
             CheckCreated();
-
             if (capacity < 0)
                 throw new ArgumentOutOfRangeException(nameof(capacity));
 
             int requiredCap = HashHelpers.GetHashCapacity(capacity);
             if (requiredCap > _buckets.Length)
-            {
                 GrowTo(requiredCap);
-            }
         }
 
         public void Dispose()
@@ -328,14 +324,12 @@ namespace ECS.App.NativeStructures
                 _buckets[i] = -1;
 
             int free = -1;
-
             for (int i = capacity - 1; i >= 0; i--)
             {
                 _hashes[i] = -1;
                 _next[i] = free;
                 free = i;
             }
-
             _freeList = free;
         }
 
@@ -347,13 +341,9 @@ namespace ECS.App.NativeStructures
             int hash = GetHashCode(key);
             int bucket = hash & (_buckets.Length - 1);
             var comparer = EqualityComparer<TKey>.Default;
-
             int i = _buckets[bucket];
 
 #if DEBUG
-            // ⚠️ КРИТИЧЕСКИ ВАЖНО для отладки:
-            // Если структура повреждена (из-за race condition), здесь будет обнаружен цикл
-            // ДО того, как приложение зависнет.
             int maxIterations = _count + 2;
             int iterations = 0;
 #endif
@@ -365,9 +355,14 @@ namespace ECS.App.NativeStructures
                 {
                     throw new InvalidOperationException(
                         $"CYCLE DETECTED in bucket chain! Bucket={bucket}, Hash={hash}. " +
-                        "This is almost always caused by CONCURRENT ACCESS from multiple threads. " +
-                        "NativeDictionary is NOT thread-safe! Use synchronization or " +
-                        "ConcurrentDictionary for multi-threaded scenarios.");
+                        $"Count={_count}, Capacity={_buckets.Length}. " +
+#if UNITY_EDITOR || DEBUG
+                        $"DebugID={_debugId}. " +
+#endif
+                        "Possible causes: " +
+                        "1) Enumerator used after dictionary was modified (Grow). " +
+                        "2) NativeDictionary struct was copied by value and one copy was disposed. " +
+                        "3) Memory corruption from disposed NativeArray.");
                 }
 #endif
 
@@ -390,12 +385,10 @@ namespace ECS.App.NativeStructures
                 return index;
             }
 
-            // ⚠️ Защита от повреждения структуры данных
             if (_count >= _buckets.Length)
             {
                 throw new InvalidOperationException(
-                    $"INTERNAL ERROR: No free entries. Count={_count}, Capacity={_buckets.Length}. " +
-                    "Structure is corrupted. Check for race conditions!");
+                    $"INTERNAL ERROR: No free entries. Count={_count}, Capacity={_buckets.Length}.");
             }
 
             return _count;
@@ -405,12 +398,10 @@ namespace ECS.App.NativeStructures
         {
             int index = AllocateEntry();
 
-            // Защита от выхода за границы массива (защита от повреждения памяти)
             if ((uint)index >= (uint)_buckets.Length)
             {
                 throw new IndexOutOfRangeException(
-                    $"Index {index} out of bounds for capacity {_buckets.Length}. " +
-                    "Internal structure is corrupted.");
+                    $"Index {index} out of bounds for capacity {_buckets.Length}.");
             }
 
             _hashes[index] = hash;
@@ -448,7 +439,7 @@ namespace ECS.App.NativeStructures
             for (int i = 0; i < oldCapacity; i++)
             {
                 int hash = _hashes[i];
-                if (hash < 0) // -1 = пустой или удалённый
+                if (hash < 0)
                     continue;
 
                 int bucket = hash & (newCapacity - 1);
@@ -463,7 +454,6 @@ namespace ECS.App.NativeStructures
             }
 
             int free = -1;
-
             for (int i = newCapacity - 1; i >= newCount; i--)
             {
                 newHashes[i] = -1;
@@ -471,7 +461,6 @@ namespace ECS.App.NativeStructures
                 free = i;
             }
 
-            // Освобождаем старые массивы
             if (_buckets.IsCreated) _buckets.Dispose();
             if (_hashes.IsCreated) _hashes.Dispose();
             if (_next.IsCreated) _next.Dispose();
@@ -500,54 +489,55 @@ namespace ECS.App.NativeStructures
                 throw new InvalidOperationException("NativeDictionary is not created or has been disposed.");
         }
 
-        public Enumerator GetEnumerator() => new Enumerator(this);
-
-        public struct Enumerator : IDisposable
+        /// <summary>
+        /// Возвращает snapshot enumerator. Безопасно даже если словарь модифицируется во время итерации.
+        /// Snapshot создаётся при вызове GetEnumerator().
+        /// </summary>
+        public SnapshotEnumerator GetEnumerator()
         {
-            private readonly NativeArray<int> _hashes;
-            private readonly NativeArray<TKey> _keys;
-            private readonly NativeArray<TValue> _values;
-            private readonly int _version;
+            CheckCreated();
+
+            var snapshot = new KeyValuePair<TKey, TValue>[_count];
+            int index = 0;
+
+            for (int i = 0; i < _hashes.Length && index < _count; i++)
+            {
+                if (_hashes[i] >= 0)
+                {
+                    snapshot[index++] = new KeyValuePair<TKey, TValue>(_keys[i], _values[i]);
+                }
+            }
+
+            return new SnapshotEnumerator(snapshot);
+        }
+
+        /// <summary>
+        /// Snapshot-based enumerator. Создаёт копию данных при создании.
+        /// Безопасен для использования даже если словарь модифицируется во время итерации.
+        /// </summary>
+        public struct SnapshotEnumerator : IDisposable
+        {
+            private readonly KeyValuePair<TKey, TValue>[] _snapshot;
             private int _index;
             private KeyValuePair<TKey, TValue> _current;
-            private bool _disposed;
 
-            internal Enumerator(NativeDictionary<TKey, TValue> dictionary)
+            internal SnapshotEnumerator(KeyValuePair<TKey, TValue>[] snapshot)
             {
-                _hashes = dictionary._hashes;
-                _keys = dictionary._keys;
-                _values = dictionary._values;
-                _version = dictionary._version;
+                _snapshot = snapshot;
                 _index = 0;
                 _current = default;
-                _disposed = dictionary._isDisposed;
             }
 
             public KeyValuePair<TKey, TValue> Current => _current;
 
             public bool MoveNext()
             {
-                if (_disposed || !_hashes.IsCreated)
-                    throw new InvalidOperationException(
-                        "Collection was modified or disposed during enumeration. " +
-                        "Do not modify the dictionary while iterating.");
-
-                int capacity = _hashes.Length;
-
-                while (_index < capacity)
+                if (_index < _snapshot.Length)
                 {
-                    if (_hashes[_index] >= 0) // Живой элемент
-                    {
-                        _current = new KeyValuePair<TKey, TValue>(
-                            _keys[_index],
-                            _values[_index]
-                        );
-                        _index++;
-                        return true;
-                    }
+                    _current = _snapshot[_index];
                     _index++;
+                    return true;
                 }
-
                 return false;
             }
 
