@@ -26,17 +26,17 @@ namespace ECS.App
 
         private static IntPtr GetTypeHandle<T>() => typeof(T).TypeHandle.Value;
 
-        private NativeDictionary<uint, uint> GetOrCreateContainer<T>() where T : unmanaged
+        private RefNativeDictionary<uint, uint> GetOrCreateContainer<T>() where T : unmanaged
         {
             var typeHandle = GetTypeHandle<T>();
 
             if (_containersConnections.TryGetValue(typeHandle, out var ptr))
             {
                 var handleFinded = GCHandle.FromIntPtr(ptr);
-                return (NativeDictionary<uint, uint>)handleFinded.Target;
+                return ((RefNativeDictionary<uint, uint>)handleFinded.Target);
             }
 
-            var container = new NativeDictionary<uint, uint>(16);
+            var container = new RefNativeDictionary<uint, uint>(16);
             var handle = GCHandle.Alloc(container, GCHandleType.Normal);
             var containerPtr = GCHandle.ToIntPtr(handle);
 

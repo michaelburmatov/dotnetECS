@@ -7,12 +7,12 @@ namespace ECS.App
 {
     public struct ManagerECS : IDisposable
     {
-        private readonly NativeDictionary<IntPtr, IntPtr> _containers;
+        private readonly RefNativeDictionary<IntPtr, IntPtr> _containers;
         private readonly ConnectorsContainer _connectorsContainer;
 
         public ManagerECS(uint initialCapacity = 16)
         {
-            _containers = new NativeDictionary<IntPtr, IntPtr>((int)initialCapacity);
+            _containers = new RefNativeDictionary<IntPtr, IntPtr>((int)initialCapacity);
             _connectorsContainer = new ConnectorsContainer();
         }
 
