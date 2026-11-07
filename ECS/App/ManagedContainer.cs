@@ -29,7 +29,7 @@ namespace ECS.App
                 return false;
             }
 
-            ref var activator = ref _data[(int)index];
+            ref var activator = ref _data.GetRef((int)index);
             if (activator.isActive)
             {
                 data = activator.componentData;
@@ -86,9 +86,9 @@ namespace ECS.App
             return (uint)_data.Length - 1;
         }
 
-        public ReadOnlySpan<ComponentDataBucket<T>> GetAllData()
-        {
-            return _data.AsSpan();
-        }
+        //public ReadOnlySpan<ComponentDataBucket<T>> GetAllData()
+        //{
+        //    return _data.AsSpan();
+        //}
     }
 }

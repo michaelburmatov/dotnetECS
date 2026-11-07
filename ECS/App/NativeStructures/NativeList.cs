@@ -44,20 +44,20 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
         Capacity = newCapacity;
     }
 
-    public T this[long index]
+    public ref T this[long index]
     {
         get
         {
             if (index < 0 || index >= Length)
                 throw new ArgumentOutOfRangeException(nameof(index));
-            return Buffer[index];
+            return ref Buffer[index];
         }
-        set
-        {
-            if (index < 0 || index >= Length)
-                throw new ArgumentOutOfRangeException(nameof(index));
-            Buffer[index] = value;
-        }
+        //set
+        //{
+        //    if (index < 0 || index >= Length)
+        //        throw new ArgumentOutOfRangeException(nameof(index));
+        //    Buffer[index] = value;
+        //}
     }
 
     public ref T GetRef(long index)
