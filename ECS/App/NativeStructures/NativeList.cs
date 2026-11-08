@@ -44,6 +44,38 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
         Capacity = newCapacity;
     }
 
+    public void EnsureCapacity(long requiredCapacity)
+    {
+        if (requiredCapacity < 0)
+            throw new OutOfMemoryException("Capacity cannot be negative.");
+
+        if (requiredCapacity <= Capacity)
+            return;
+
+        long newCapacity = Capacity == 0 ? 4 : Capacity;
+
+        long maxCapacity = HashHelpers.MaxCapacity;
+
+        while (newCapacity < requiredCapacity)
+        {
+            if (newCapacity >= maxCapacity)
+            {
+                newCapacity = maxCapacity;
+                break;
+            }
+
+            if (newCapacity > maxCapacity / 2)
+                newCapacity = maxCapacity;
+            else
+                newCapacity *= 2;
+        }
+
+        if (newCapacity < requiredCapacity)
+            throw new OutOfMemoryException($"Unable to allocate memory. Required: {requiredCapacity}, Max: {maxCapacity}");
+
+        Resize(newCapacity);
+    }
+
     public ref T this[long index]
     {
         get
@@ -52,12 +84,6 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
                 throw new ArgumentOutOfRangeException(nameof(index));
             return ref Buffer[index];
         }
-        //set
-        //{
-        //    if (index < 0 || index >= Length)
-        //        throw new ArgumentOutOfRangeException(nameof(index));
-        //    Buffer[index] = value;
-        //}
     }
 
     public ref T GetRef(long index)
