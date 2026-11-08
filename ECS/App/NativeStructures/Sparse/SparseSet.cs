@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 
-namespace ECS.App.NativeStructures
+namespace ECS.App.NativeStructures.Sparse
 {
     public unsafe struct SparseSet<T> where T : unmanaged
     {
@@ -9,7 +9,7 @@ namespace ECS.App.NativeStructures
         public NativeList<uint> Dense;
         public NativeList<T> Data;
 
-        public void Init(long initialCapacity = 16)
+        public SparseSet(long initialCapacity = 16)
         {
             Sparse = new SparseSetDictionary(initialCapacity);
             Dense = new NativeList<uint>(initialCapacity);

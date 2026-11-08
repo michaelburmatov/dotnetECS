@@ -1,8 +1,9 @@
-﻿using System;
+﻿using ECS.App.NativeStructures;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
-namespace ECS.App.NativeStructures
+namespace ECS.App.NativeStructures.Sparse
 {
     public unsafe struct SparseSetDictionary : IDisposable
     {
@@ -20,7 +21,6 @@ namespace ECS.App.NativeStructures
             if (initialCapacity < 0)
                 throw new ArgumentOutOfRangeException(nameof(initialCapacity));
 
-            // Минимальная ёмкость — 16
             if (initialCapacity < 16) initialCapacity = 16;
 
             Capacity = initialCapacity;
@@ -32,14 +32,13 @@ namespace ECS.App.NativeStructures
             Keys.Resize(initialCapacity);
             Values.Resize(initialCapacity);
 
-            // Безопасное обнуление чанками для больших объёмов
+            Keys.Length = initialCapacity;
+            Values.Length = initialCapacity;
+
             FillWithConstant(Keys.Buffer, EMPTY_KEY, initialCapacity);
             FillWithConstant(Values.Buffer, 0, initialCapacity);
         }
 
-        /// <summary>
-        /// Безопасное заполнение массива константой через чанки
-        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void FillWithConstant(uint* buffer, uint value, long count)
         {
@@ -62,18 +61,15 @@ namespace ECS.App.NativeStructures
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static long Hash(uint key, long capacity)
         {
-            // Murmur-inspired hash для uint
             key ^= key >> 16;
             key *= 0x7feb352d;
             key ^= key >> 15;
             key *= 0x846ca68b;
             key ^= key >> 16;
 
-            // Модуль для long capacity
             return (long)(key % (ulong)capacity);
         }
 
-        // === ИНДЕКСАТОР ===
         public uint this[uint key]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -121,8 +117,6 @@ namespace ECS.App.NativeStructures
                     value = 0;
                     return false;
                 }
-
-                // REMOVED_KEY — продолжаем пробирование
             }
 
             value = 0;
@@ -164,8 +158,6 @@ namespace ECS.App.NativeStructures
             if (key == EMPTY_KEY || key == REMOVED_KEY)
                 throw new ArgumentException($"Key cannot be {EMPTY_KEY} or {REMOVED_KEY}");
 
-            // Проверка коэффициента загрузки (< 70%)
-            // Используем double для избежания переполнения при очень больших числах
             if (Count * 10 >= Capacity * 7)
             {
                 Resize(Capacity * 2);
@@ -230,7 +222,6 @@ namespace ECS.App.NativeStructures
             var oldValues = Values;
             long oldCapacity = Capacity;
 
-            // Инициализируем новую таблицу
             Capacity = newCapacity;
             Count = 0;
             Keys = new NativeList<uint>(newCapacity);
@@ -239,11 +230,12 @@ namespace ECS.App.NativeStructures
             Keys.Resize(newCapacity);
             Values.Resize(newCapacity);
 
-            // Безопасное заполнение чанками
+            Keys.Length = newCapacity;
+            Values.Length = newCapacity;
+
             FillWithConstant(Keys.Buffer, EMPTY_KEY, newCapacity);
             FillWithConstant(Values.Buffer, 0, newCapacity);
 
-            // Переносим только валидные записи
             for (long i = 0; i < oldCapacity; i++)
             {
                 uint key = oldKeys[i];
