@@ -18,7 +18,7 @@ namespace WindowsHost.States
         public override void OnUpdate(AppStateMachine stateMachine)
         {
             base.OnEnter(stateMachine);
-            Console.WriteLine("Update state: " + stateType);
+            //Console.WriteLine("Update state: " + stateType);
         }
 
         public override void OnExit(AppStateMachine stateMachine)

@@ -10,7 +10,8 @@
         public override void OnUpdate(AppStateMachine stateMachine)
         {
             base.OnUpdate(stateMachine);
-            stateMachine.SwitchState<StateECS>();
+            stateMachine.SwitchState<StateECSTest>();
+            //stateMachine.SwitchState<StateECS>(); StateECSTest
         }
     }
 }

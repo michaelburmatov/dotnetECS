@@ -20,6 +20,8 @@ namespace ECS.App
             _entities = new NativeHashSet<Entity>(16);
         }
 
+        public ref ManagerECS GetManager() => ref _manager;
+
         public void Update()
         {
             foreach (var system in _systemsUpdate)

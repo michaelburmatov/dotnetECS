@@ -25,7 +25,7 @@ public class PoolSystems : Singleton<PoolSystems>
                 var types = assembly.GetTypes()
                     //.Where(t => t.IsClass && !t.IsAbstract)
                     .Where(t => !t.IsAbstract)
-                    .Where(t => typeof(ISystemUpdate).IsAssignableFrom(t) &&
+                    .Where(t => typeof(ISystemUpdate).IsAssignableFrom(t) ||
                                typeof(ISystemEnter).IsAssignableFrom(t));
 
                 foreach (var type in types)

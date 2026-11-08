@@ -7,6 +7,7 @@ namespace WindowsHost.States
         public AppStateMachine() : base(new InitState())
         {
             TryAddState(new StateECS());
+            TryAddState(new StateECSTest());
         }
 
     }
