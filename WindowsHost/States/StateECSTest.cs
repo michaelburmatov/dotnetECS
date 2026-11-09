@@ -11,6 +11,7 @@ namespace WindowsHost.States
         private World mainWorld;
         private int updateCount = 0;
         private const int MAX_UPDATES = 1000;
+        private const int COUNT_ENTITIES = 100_000;//100_000
         private Stopwatch sw = new Stopwatch();
 
         public override void OnEnter(AppStateMachine stateMachine)
@@ -27,7 +28,7 @@ namespace WindowsHost.States
 
             sw.Start();
 
-            for (int i = 0; i < 100_000; i++)
+            for (int i = 0; i < COUNT_ENTITIES; i++)
             {
                 var entity = mainWorld.CreateEntity(
                     new Position { X = i, Y = i * 2, Z = i * 3 }
@@ -41,7 +42,7 @@ namespace WindowsHost.States
             }
 
             sw.Stop();
-            Console.WriteLine($"Created 100,000 entities in {sw.Elapsed.TotalMilliseconds:F2}ms");
+            Console.WriteLine($"Created {COUNT_ENTITIES} entities in {sw.Elapsed.TotalMilliseconds:F2}ms");
             Console.WriteLine("Starting update loop...\n");
 
             sw.Restart();
@@ -57,7 +58,7 @@ namespace WindowsHost.States
                 Console.WriteLine($"\n=== Test Complete ===");
                 Console.WriteLine($"Processed {MAX_UPDATES} updates in {sw.Elapsed.TotalMilliseconds:F2}ms");
                 Console.WriteLine($"Average time per update: {sw.Elapsed.TotalMilliseconds / MAX_UPDATES:F3}ms");
-                Console.WriteLine($"Performance: {100_000 / (sw.Elapsed.TotalMilliseconds / MAX_UPDATES):F0} entities/ms");
+                Console.WriteLine($"Performance: {COUNT_ENTITIES / (sw.Elapsed.TotalMilliseconds / MAX_UPDATES):F0} entities/ms");
                 Console.WriteLine("\nFirst 10 entities after 1000 updates:");
 
                 ref var manager = ref mainWorld.GetManager();
