@@ -29,7 +29,7 @@ namespace ECS.App.NativeStructures
         private int _version;
         private bool _isDisposed;
 
-#if UNITY_EDITOR || DEBUG
+#if DEBUG
         private readonly int _debugId;
         private static int _nextDebugId = 0;
 #endif
@@ -42,7 +42,7 @@ namespace ECS.App.NativeStructures
             _isDisposed = false;
             _version = 0;
 
-#if UNITY_EDITOR || DEBUG
+#if DEBUG
             _debugId = System.Threading.Interlocked.Increment(ref _nextDebugId);
 #endif
 
@@ -356,7 +356,7 @@ namespace ECS.App.NativeStructures
                     throw new InvalidOperationException(
                         $"CYCLE DETECTED in bucket chain! Bucket={bucket}, Hash={hash}. " +
                         $"Count={_count}, Capacity={_buckets.Length}. " +
-#if UNITY_EDITOR || DEBUG
+#if DEBUG
                         $"DebugID={_debugId}. " +
 #endif
                         "Possible causes: " +

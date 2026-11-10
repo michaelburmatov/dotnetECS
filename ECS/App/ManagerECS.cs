@@ -50,6 +50,16 @@ namespace ECS.App
             return false;
         }
 
+        //TODO
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetFilter<T1, T2>(out uint count)
+            where T1 : unmanaged
+            where T2 : unmanaged
+        {
+            count = 0;
+            return false;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetComponentData<T>(out T componentData, uint denseIndex) where T : unmanaged
         {

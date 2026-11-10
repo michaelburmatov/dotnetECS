@@ -1,20 +1,37 @@
 ﻿using ECS.App.NativeStructures;
 using System;
+using System.Runtime.CompilerServices;
 
 public unsafe struct NativeList<T> : IDisposable where T : unmanaged
 {
     public T* Buffer;
     public long Length;
     public long Capacity;
+    public T DefaultValue;
+    private bool needFeelBuffer;
 
-    public NativeList(long initialCapacity = 16)
+    public NativeList(long initialCapacity = 16, bool useClearBuffer = false, T defaultValue = default)
     {
         if (initialCapacity < 0)
             throw new ArgumentOutOfRangeException(nameof(initialCapacity));
 
-        Buffer = initialCapacity == 0 ? null : NativeMemory.Allocate<T>(initialCapacity);
-        Length = 0;
-        Capacity = initialCapacity;
+        DefaultValue = defaultValue;
+        needFeelBuffer = useClearBuffer;
+
+        if (initialCapacity == 0)
+        {
+            Buffer = null;
+            Length = 0;
+            Capacity = 0;
+        }
+        else
+        {
+            Buffer = NativeMemory.Allocate<T>(initialCapacity);
+            Length = 0;
+            Capacity = initialCapacity;
+
+            FillBuffer(Buffer, initialCapacity, defaultValue);
+        }
     }
 
     public void Add(T item)
@@ -39,6 +56,10 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
             NativeMemory.Copy(Buffer, newBuffer, Length);
             NativeMemory.Free(Buffer);
         }
+
+        long emptyCount = newCapacity - Length;
+        if (emptyCount > 0)
+            FillBuffer(newBuffer + Length, emptyCount, DefaultValue);
 
         Buffer = newBuffer;
         Capacity = newCapacity;
@@ -102,6 +123,8 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
         {
             Buffer[i] = Buffer[i + 1];
         }
+
+        Buffer[Length - 1] = DefaultValue;
         Length--;
     }
 
@@ -111,11 +134,15 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
             throw new ArgumentOutOfRangeException(nameof(index));
 
         Buffer[index] = Buffer[Length - 1];
+
+        Buffer[Length - 1] = DefaultValue;
         Length--;
     }
 
     public void Clear()
     {
+        if (Length > 0 && Buffer != null)
+            FillBuffer(Buffer, Length, DefaultValue);
         Length = 0;
     }
 
@@ -128,5 +155,28 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
         }
         Length = 0;
         Capacity = 0;
+    }
+
+    /// <summary>
+    /// Быстрое заполнение буфера через Span.Fill с поддержкой long размеров.
+    /// Span.Fill использует SIMD-инструкции процессора для максимальной производительности.
+    /// </summary>
+    //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void FillBuffer(T* buffer, long count, T value)
+    {
+        if (!needFeelBuffer || count <= 0 || buffer == null) return;
+
+        const long maxChunkSize = int.MaxValue;
+        long remaining = count;
+        T* currentPtr = buffer;
+
+        while (remaining > 0)
+        {
+            int chunkSize = (int)Math.Min(remaining, maxChunkSize);
+            new Span<T>((void*)currentPtr, chunkSize).Fill(value);
+
+            currentPtr += chunkSize;
+            remaining -= chunkSize;
+        }
     }
 }
