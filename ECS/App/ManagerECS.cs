@@ -50,13 +50,25 @@ namespace ECS.App
             return false;
         }
 
-        //TODO
+        //TODO 
+        // Переделать
+        // Закешировать все возможные DataFilter
+        // Выдавать их и изменять при изменении используемых данных
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetFilter<T1, T2>(out uint count)
+        public bool TryGetFilter<T1, T2>(out DataFilter<T1, T2> filter)
             where T1 : unmanaged
             where T2 : unmanaged
         {
-            count = 0;
+            if (TryGetContainer<T1>(out var container1))
+            {
+                if (TryGetContainer<T2>(out var container2))
+                {
+                    filter = new DataFilter<T1, T2>(container1, container2);
+                    return true;
+                }
+            }
+
+            filter = default;
             return false;
         }
 

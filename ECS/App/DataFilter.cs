@@ -15,10 +15,10 @@ namespace ECS.App
         private bool _firstIsSmaller;
         private bool _isValid;
 
-        public DataFilter()
+        public DataFilter(SparseSet<T1>* _set1, SparseSet<T2>* _set2)
         {
-            _set1 = managerECS.GetSparseSetPtr<T1>();
-            _set2 = managerECS.GetSparseSetPtr<T2>();
+            this._set1 = _set1;
+            this._set2 = _set2;
 
             _isValid = _set1 != null && _set2 != null;
 

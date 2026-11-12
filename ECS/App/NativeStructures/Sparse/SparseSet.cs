@@ -22,7 +22,10 @@ namespace ECS.App.NativeStructures.Sparse
         public void Add(uint entityId, T data)
         {
             if (Sparse.Length <= entityId)
+            {
                 Sparse.Resize(entityId + 1);
+                Sparse.Length = Sparse.Capacity;
+            }
 
             var existingValue = Sparse[entityId];
             if (existingValue != EMPTY_VALUE)
