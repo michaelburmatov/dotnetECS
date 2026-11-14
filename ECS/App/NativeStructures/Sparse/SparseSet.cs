@@ -23,8 +23,9 @@ namespace ECS.App.NativeStructures.Sparse
         {
             if (Sparse.Length <= entityId)
             {
-                Sparse.Resize(entityId + 1);
-                Sparse.Length = Sparse.Capacity;
+                // геометрический рост вместо Resize ровно под entityId
+                Sparse.EnsureCapacity(entityId + 1);
+                Sparse.Length = entityId + 1;
             }
 
             var existingValue = Sparse[entityId];
@@ -131,6 +132,20 @@ namespace ECS.App.NativeStructures.Sparse
             data = Data.Buffer;
             count = Data.Length;
             return true;
+        }
+
+        /// <summary>
+        /// Очищает набор за O(count), а не O(maxEntityId): сбрасываем только занятые ячейки Sparse.
+        /// Capacity сохраняется.
+        /// </summary>
+        public void Clear()
+        {
+            for (long i = 0; i < Dense.Length; i++)
+                Sparse[Dense[i]] = EMPTY_VALUE;
+
+            Dense.Length = 0;
+            Data.Length = 0;
+            Sparse.Length = 0;
         }
 
         public void Dispose()

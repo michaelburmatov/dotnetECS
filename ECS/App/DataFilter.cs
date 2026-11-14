@@ -1,205 +1,169 @@
-﻿using ECS.App.NativeStructures.Sparse;
+﻿using ECS.App.NativeStructures;
+using ECS.App.NativeStructures.Sparse;
 using System;
 using System.Runtime.CompilerServices;
 
 namespace ECS.App
 {
+    /// <summary>
+    /// Фильтр «есть и T1, и T2». Список совпадений МАТЕРИАЛИЗОВАН:
+    /// он строится один раз при создании фильтра и дальше поддерживается
+    /// инкрементально через уведомления менеджера о добавлении/удалении компонентов.
+    ///
+    /// Сложность:
+    ///   GetCount()            — O(1)
+    ///   GetFirst(i)/GetSecond(i) — O(1)
+    ///   GetEntityId(i)        — O(1)
+    ///   полный обход          — O(k), k = число совпадений (без проверок Has)
+    ///   AddComponent/RemoveComponent — O(1) на затронутый фильтр (амортизированно)
+    ///   создание фильтра      — O(min(n, m)) однократно
+    ///
+    /// Это struct-хэндл: все копии разделяют одно состояние (как RefNativeDictionary).
+    /// Кэшем владеет ManagerECS и освобождает его в Dispose.
+    ///
+    /// ВАЖНО: matchIndex — позиция в плотном списке совпадений. Он стабилен только
+    /// до следующего структурного изменения (удаление делает swap-back).
+    /// </summary>
     public unsafe struct DataFilter<T1, T2>
         where T1 : unmanaged
         where T2 : unmanaged
     {
-        private SparseSet<T1>* _set1;
-        private SparseSet<T2>* _set2;
-        private SparseSet<T1>* _smallerSet;  // Оптимизация: итерируем по меньшему
-        private SparseSet<T2>* _largerSet;
-        private bool _firstIsSmaller;
-        private bool _isValid;
 
-        public DataFilter(SparseSet<T1>* _set1, SparseSet<T2>* _set2)
+        private readonly SparseSet<T1>* _set1;
+        private readonly SparseSet<T2>* _set2;
+        private readonly IntPtr _h1;
+        private readonly IntPtr _h2;
+
+        private NativeList<uint> _matches;   // плотный список entityId с обоими компонентами
+        private SparseSet<uint> _position;   // entityId -> индекс в _matches (O(1) удаление)
+        private bool _disposed;
+
+        /// <summary>Счётчик структурных изменений (для DEBUG-проверки итерации).</summary>
+        public int Version;
+
+        public DataFilter(SparseSet<T1>* set1, SparseSet<T2>* set2, IntPtr h1, IntPtr h2)
         {
-            this._set1 = _set1;
-            this._set2 = _set2;
+            _set1 = set1;
+            _set2 = set2;
+            _h1 = h1;
+            _h2 = h2;
+            _matches = new NativeList<uint>(16);
+            _position = new SparseSet<uint>(16);
+            _disposed = false;
+            Version = 0;
+            Rebuild();
+        }
 
-            _isValid = _set1 != null && _set2 != null;
+        public long Count => _matches.Length;
 
-            if (_isValid)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public uint EntityAt(long matchIndex) => _matches[matchIndex];
+
+        // O(1): одна загрузка entityId + sparse-lookup (Sparse[e] -> Data[idx-1])
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref T1 GetFirst(long matchIndex) => ref _set1->Get(_matches[matchIndex]);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref T2 GetSecond(long matchIndex) => ref _set2->Get(_matches[matchIndex]);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref T1 FirstByEntity(uint entityId) => ref _set1->Get(entityId);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref T2 SecondByEntity(uint entityId) => ref _set2->Get(entityId);
+
+        /// <summary>
+        /// Полная перестройка кэша. O(min(n, m)). Вызывается при создании фильтра
+        /// (и может быть вызвана вручную как «аварийное» восстановление инварианта).
+        /// </summary>
+        public void Rebuild()
+        {
+            _matches.Length = 0;
+            _position.Clear();
+
+            if (_set1->Data.Length <= _set2->Data.Length)
             {
-                if (_set1->Data.Length <= _set2->Data.Length)
+                ref var dense = ref _set1->Dense;
+                for (long i = 0; i < dense.Length; i++)
                 {
-                    _smallerSet = _set1;
-                    _largerSet = _set2;
-                    _firstIsSmaller = true;
-                }
-                else
-                {
-                    _smallerSet = (SparseSet<T1>*)_set2;
-                    _largerSet = (SparseSet<T2>*)_set1;
-                    _firstIsSmaller = false;
+                    uint e = dense[i];
+                    if (_set2->Has(e))
+                        Append(e);
                 }
             }
             else
             {
-                _smallerSet = null;
-                _largerSet = null;
-                _firstIsSmaller = true;
-            }
-        }
-
-        /// <summary>
-        /// Возвращает количество сущностей, у которых есть ОБА компонента.
-        /// Вызывать каждый раз дорого — лучше использовать Enumerator.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public long GetCount()
-        {
-            if (!_isValid) return 0;
-
-            long count = 0;
-            long smallerLen = _firstIsSmaller ? _set1->Data.Length : _set2->Data.Length;
-            uint* smallerDense = _firstIsSmaller ? _set1->Dense.Buffer : _set2->Dense.Buffer;
-
-            for (long i = 0; i < smallerLen; i++)
-            {
-                uint entityId = smallerDense[i];
-                if (_firstIsSmaller ? _set2->Has(entityId) : _set1->Has(entityId))
-                    count++;
-            }
-            return count;
-        }
-
-        /// <summary>
-        /// Возвращает ref на первый компонент (T1) по индексу совпадения.
-        /// Самый быстрый способ получить данные.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T1 GetFirst(long matchIndex)
-        {
-            uint entityId = GetEntityIdAt(matchIndex);
-            return ref _set1->Get(entityId);
-        }
-
-        /// <summary>
-        /// Возвращает ref на второй компонент (T2) по индексу совпадения.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T2 GetSecond(long matchIndex)
-        {
-            uint entityId = GetEntityIdAt(matchIndex);
-            return ref _set2->Get(entityId);
-        }
-
-        /// <summary>
-        /// Находит entityId по индексу совпадения (matchIndex).
-        /// Пропускает сущности, у которых нет обоих компонентов.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private uint GetEntityIdAt(long matchIndex)
-        {
-            if (!_isValid)
-                throw new InvalidOperationException("Filter is not valid");
-
-            long smallerLen = _firstIsSmaller ? _set1->Data.Length : _set2->Data.Length;
-            uint* smallerDense = _firstIsSmaller ? _set1->Dense.Buffer : _set2->Dense.Buffer;
-
-            long currentMatch = 0;
-            for (long i = 0; i < smallerLen; i++)
-            {
-                uint entityId = smallerDense[i];
-                bool hasSecond = _firstIsSmaller ? _set2->Has(entityId) : _set1->Has(entityId);
-
-                if (hasSecond)
+                ref var dense = ref _set2->Dense;
+                for (long i = 0; i < dense.Length; i++)
                 {
-                    if (currentMatch == matchIndex)
-                        return entityId;
-                    currentMatch++;
+                    uint e = dense[i];
+                    if (_set1->Has(e))
+                        Append(e);
                 }
             }
 
-            throw new ArgumentOutOfRangeException(nameof(matchIndex));
+            Version++;
         }
 
-        /// <summary>
-        /// Возвращает Enumerator для эффективной итерации через foreach.
-        /// Это самый производительный способ работы с фильтром.
-        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Enumerator GetEnumerator() => new Enumerator(this);
-
-        /// <summary>
-        /// Struct Enumerator для эффективной итерации без аллокаций.
-        /// Используется в foreach.
-        /// </summary>
-        public ref struct Enumerator
+        private void Append(uint entityId)
         {
-            private readonly DataFilter<T1, T2> _filter;
-            private readonly uint* _smallerDense;
-            private readonly long _smallerLen;
-            private long _currentIndex;
-            private uint _currentEntityId;
+            _position.Add(entityId, (uint)_matches.Length);
+            _matches.Add(entityId);
+        }
 
-            internal Enumerator(DataFilter<T1, T2> filter)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void TryAddMatch(uint entityId)
+        {
+            if (_position.Has(entityId))
+                return;
+
+            Append(entityId);
+            Version++;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void RemoveMatch(uint entityId)
+        {
+            if (!_position.TryGet(entityId, out uint index))
+                return;
+
+            long last = _matches.Length - 1;
+            if (index != last)
             {
-                _filter = filter;
-                _currentIndex = -1;
-                _currentEntityId = uint.MaxValue;
-
-                if (!filter._isValid)
-                {
-                    _smallerDense = null;
-                    _smallerLen = 0;
-                    return;
-                }
-
-                _smallerDense = filter._firstIsSmaller
-                    ? filter._set1->Dense.Buffer
-                    : filter._set2->Dense.Buffer;
-                _smallerLen = filter._firstIsSmaller
-                    ? filter._set1->Data.Length
-                    : filter._set2->Data.Length;
+                uint moved = _matches[last];
+                _matches[index] = moved;
+                _position.Add(moved, index);   // upsert: правим позицию переехавшей сущности
             }
 
-            /// <summary>
-            /// ID текущей сущности.
-            /// </summary>
-            public uint EntityId => _currentEntityId;
+            _matches.Length = last;
+            _position.Remove(entityId);
+            Version++;
+        }
 
-            /// <summary>
-            /// Первый компонент (T1) текущей сущности.
-            /// </summary>
-            public ref T1 First
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref _filter._set1->Get(_currentEntityId);
-            }
+        public void OnComponentAdded(IntPtr typeHandle, uint entityId)
+        {
+            // добавили один из двух компонентов — совпадение есть, если второй уже на месте
+            bool hasOther = typeHandle == _h1 ? _set2->Has(entityId) : _set1->Has(entityId);
+            if (hasOther)
+                TryAddMatch(entityId);
+        }
 
-            /// <summary>
-            /// Второй компонент (T2) текущей сущности.
-            /// </summary>
-            public ref T2 Second
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref _filter._set2->Get(_currentEntityId);
-            }
+        public void OnComponentRemoved(IntPtr typeHandle, uint entityId)
+        {
+            // любого из двух компонентов больше нет — совпадение обязано исчезнуть
+            RemoveMatch(entityId);
+        }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool MoveNext()
-            {
-                for (long i = _currentIndex + 1; i < _smallerLen; i++)
-                {
-                    uint entityId = _smallerDense[i];
-                    bool hasSecond = _filter._firstIsSmaller
-                        ? _filter._set2->Has(entityId)
-                        : _filter._set1->Has(entityId);
+        public void Dispose()
+        {
+            if (_disposed)
+                return;
 
-                    if (hasSecond)
-                    {
-                        _currentIndex = i;
-                        _currentEntityId = entityId;
-                        return true;
-                    }
-                }
-                return false;
-            }
+            _disposed = true;
+            _matches.Dispose();
+            _position.Dispose();
+            Version++;
         }
     }
 }
