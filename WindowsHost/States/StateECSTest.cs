@@ -20,7 +20,7 @@ namespace WindowsHost.States
 
             mainWorld = new World();
 
-            mainWorld.TryAddSystem<TestSystem>();
+            //mainWorld.TryAddSystem<TestSystem>();
             mainWorld.TryAddSystem<MovementSystem>();
 
             Console.WriteLine("=== ECS Stress Test ===");

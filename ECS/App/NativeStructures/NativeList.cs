@@ -12,8 +12,10 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
 
     public NativeList(long initialCapacity = 16, bool useClearBuffer = false, T defaultValue = default)
     {
+#if DEBUG
         if (initialCapacity < 0)
             throw new ArgumentOutOfRangeException(nameof(initialCapacity));
+#endif
 
         DefaultValue = defaultValue;
         needFeelBuffer = useClearBuffer;
@@ -67,8 +69,10 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
 
     public void EnsureCapacity(long requiredCapacity)
     {
+#if DEBUG
         if (requiredCapacity < 0)
             throw new OutOfMemoryException("Capacity cannot be negative.");
+#endif
 
         if (requiredCapacity <= Capacity)
             return;
@@ -90,9 +94,10 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
             else
                 newCapacity *= 2;
         }
-
+#if DEBUG
         if (newCapacity < requiredCapacity)
             throw new OutOfMemoryException($"Unable to allocate memory. Required: {requiredCapacity}, Max: {maxCapacity}");
+#endif
 
         Resize(newCapacity);
     }
@@ -101,23 +106,30 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
     {
         get
         {
+#if DEBUG
             if (index < 0 || index >= Length)
                 throw new ArgumentOutOfRangeException(nameof(index));
+#endif
+
             return ref Buffer[index];
         }
     }
 
     public ref T GetRef(long index)
     {
+#if DEBUG
         if (index < 0 || index >= Length)
             throw new ArgumentOutOfRangeException(nameof(index));
+#endif
         return ref Buffer[index];
     }
 
     public void RemoveAt(long index)
     {
+#if DEBUG
         if (index < 0 || index >= Length)
             throw new ArgumentOutOfRangeException(nameof(index));
+#endif
 
         for (long i = index; i < Length - 1; i++)
         {
@@ -130,8 +142,10 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
 
     public void RemoveAtSwapBack(long index)
     {
+#if DEBUG
         if (index < 0 || index >= Length)
             throw new ArgumentOutOfRangeException(nameof(index));
+#endif
 
         Buffer[index] = Buffer[Length - 1];
 

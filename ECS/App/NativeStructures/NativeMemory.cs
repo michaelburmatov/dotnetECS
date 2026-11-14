@@ -8,8 +8,10 @@ namespace ECS.App.NativeStructures
         // Используем long для размеров
         public static T* Allocate<T>(long count) where T : unmanaged
         {
+#if DEBUG
             if (count < 0)
                 throw new ArgumentOutOfRangeException(nameof(count));
+#endif
             if (count == 0)
                 return null;
 
@@ -23,8 +25,10 @@ namespace ECS.App.NativeStructures
 
         public static T* Reallocate<T>(T* ptr, long count) where T : unmanaged
         {
+#if DEBUG
             if (count < 0)
                 throw new ArgumentOutOfRangeException(nameof(count));
+#endif
             if (count == 0)
             {
                 Free(ptr);
@@ -34,8 +38,10 @@ namespace ECS.App.NativeStructures
                 return Allocate<T>(count);
 
             long bytes = count * sizeof(T);
+#if DEBUG
             if (bytes < 0)
                 throw new OutOfMemoryException();
+#endif
 
             return (T*)(void*)Marshal.ReAllocHGlobal(
                 (IntPtr)(void*)ptr,

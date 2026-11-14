@@ -36,8 +36,10 @@ namespace ECS.App.NativeStructures
 
         public NativeDictionary(int capacity)
         {
+#if DEBUG
             if (capacity < 0)
                 throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity cannot be negative.");
+#endif
 
             _isDisposed = false;
             _version = 0;
@@ -83,8 +85,10 @@ namespace ECS.App.NativeStructures
             {
                 CheckCreated();
                 int index = FindIndex(key);
+#if DEBUG
                 if (index < 0)
                     throw new KeyNotFoundException($"The given key '{key}' was not present in the dictionary.");
+#endif
                 return _values[index];
             }
 
@@ -105,8 +109,11 @@ namespace ECS.App.NativeStructures
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(TKey key, TValue value)
         {
-            if (!TryAdd(key, value))
+            if (TryAdd(key, value))
+                return;
+#if DEBUG
                 throw new ArgumentException($"An item with the same key '{key}' has already been added.", nameof(key));
+#endif
         }
 
         public bool TryAdd(TKey key, TValue value)
@@ -387,8 +394,10 @@ namespace ECS.App.NativeStructures
 
             if (_count >= _buckets.Length)
             {
+#if DEBUG
                 throw new InvalidOperationException(
                     $"INTERNAL ERROR: No free entries. Count={_count}, Capacity={_buckets.Length}.");
+#endif
             }
 
             return _count;
@@ -400,8 +409,10 @@ namespace ECS.App.NativeStructures
 
             if ((uint)index >= (uint)_buckets.Length)
             {
+#if DEBUG
                 throw new IndexOutOfRangeException(
                     $"Index {index} out of bounds for capacity {_buckets.Length}.");
+#endif
             }
 
             _hashes[index] = hash;
@@ -485,8 +496,10 @@ namespace ECS.App.NativeStructures
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckCreated()
         {
+#if DEBUG
             if (_isDisposed || !_buckets.IsCreated)
                 throw new InvalidOperationException("NativeDictionary is not created or has been disposed.");
+#endif
         }
 
         /// <summary>

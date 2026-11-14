@@ -52,9 +52,10 @@ namespace ECS.App.NativeStructures
         public T Dequeue()
         {
             CheckCreated();
-
+#if DEBUG
             if (_count == 0)
                 throw new InvalidOperationException("Queue is empty.");
+#endif
 
             T item = _buffer[_head];
             _buffer[_head] = default;
@@ -87,9 +88,10 @@ namespace ECS.App.NativeStructures
         public T Peek()
         {
             CheckCreated();
-
+#if DEBUG
             if (_count == 0)
                 throw new InvalidOperationException("Queue is empty.");
+#endif
 
             return _buffer[_head];
         }
@@ -113,9 +115,10 @@ namespace ECS.App.NativeStructures
         public ref T PeekRef()
         {
             CheckCreated();
-
+#if DEBUG
             if (_count == 0)
                 throw new InvalidOperationException("Queue is empty.");
+#endif
 
             return ref _buffer[_head];
         }
@@ -271,8 +274,10 @@ namespace ECS.App.NativeStructures
 
         private void CheckCreated()
         {
+#if DEBUG
             if (!_isCreated)
                 throw new InvalidOperationException("NativeQueue is not created or already disposed.");
+#endif
         }
 
         public struct Enumerator : IDisposable

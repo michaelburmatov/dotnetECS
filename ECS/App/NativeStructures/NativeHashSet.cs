@@ -14,8 +14,10 @@ namespace ECS.App.NativeStructures
 
         public NativeHashSet(int capacity)
         {
+#if DEBUG
             if (capacity < 0)
                 throw new ArgumentOutOfRangeException(nameof(capacity));
+#endif
 
             int cap = HashHelpers.GetHashCapacity(capacity);
 
@@ -256,8 +258,10 @@ namespace ECS.App.NativeStructures
 
         private void CheckCreated()
         {
+#if DEBUG
             if (!_buckets.IsCreated)
                 throw new InvalidOperationException("Native collection is not created or already disposed.");
+#endif
         }
     }
 }

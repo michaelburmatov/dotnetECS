@@ -10,8 +10,10 @@ namespace ECS.App.NativeStructures
 
         public NativeArray(int length, bool clearMemory = false)
         {
+#if DEBUG
             if (length < 0)
                 throw new ArgumentOutOfRangeException(nameof(length));
+#endif
 
             _ptr = NativeMemory.Allocate<T>(length);
             _length = length;
@@ -29,9 +31,10 @@ namespace ECS.App.NativeStructures
             get
             {
                 CheckCreated();
-
+#if DEBUG
                 if ((uint)index >= (uint)_length)
                     throw new ArgumentOutOfRangeException(nameof(index));
+#endif
 
                 return ref _ptr[index];
             }
@@ -67,8 +70,10 @@ namespace ECS.App.NativeStructures
 
         private void CheckCreated()
         {
+#if DEBUG
             if (!_isCreated)
                 throw new InvalidOperationException("Native collection is not created or already disposed.");
+#endif
         }
     }
 }

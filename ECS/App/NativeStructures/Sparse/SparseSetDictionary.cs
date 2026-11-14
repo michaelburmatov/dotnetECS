@@ -75,9 +75,13 @@ namespace ECS.App.NativeStructures.Sparse
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (!TryGetValue(key, out uint value))
-                    throw new KeyNotFoundException($"Key {key} not found in dictionary");
-                return value;
+                if (TryGetValue(key, out uint value))
+                    return value;
+
+#if DEBUG
+                throw new KeyNotFoundException($"Key {key} not found in dictionary");
+#endif
+                return default;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -155,8 +159,10 @@ namespace ECS.App.NativeStructures.Sparse
 
         public void Add(uint key, uint value)
         {
+#if DEBUG
             if (key == EMPTY_KEY || key == REMOVED_KEY)
                 throw new ArgumentException($"Key cannot be {EMPTY_KEY} or {REMOVED_KEY}");
+#endif
 
             if (Count * 10 >= Capacity * 7)
             {
@@ -184,8 +190,9 @@ namespace ECS.App.NativeStructures.Sparse
                     return;
                 }
             }
-
+#if DEBUG
             throw new InvalidOperationException("Dictionary is full despite resize check");
+#endif
         }
 
         public bool Remove(uint key)

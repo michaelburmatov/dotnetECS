@@ -14,8 +14,10 @@ namespace ECS.App.NativeStructures
 
         public NativeStack(uint capacity = 16)
         {
+#if DEBUG
             if (capacity < 0)
                 throw new ArgumentOutOfRangeException(nameof(capacity));
+#endif
 
             if (capacity == 0)
                 capacity = 4;
@@ -46,9 +48,10 @@ namespace ECS.App.NativeStructures
         public T Pop()
         {
             CheckCreated();
-
+#if DEBUG
             if (_count == 0)
                 throw new InvalidOperationException("Stack is empty.");
+#endif
 
             T item = _buffer[--_count];
             _buffer[_count] = default;
@@ -77,9 +80,10 @@ namespace ECS.App.NativeStructures
         public T Peek()
         {
             CheckCreated();
-
+#if DEBUG
             if (_count == 0)
                 throw new InvalidOperationException("Stack is empty.");
+#endif
 
             return _buffer[_count - 1];
         }
@@ -103,9 +107,10 @@ namespace ECS.App.NativeStructures
         public ref T PeekRef()
         {
             CheckCreated();
-
+#if DEBUG
             if (_count == 0)
                 throw new InvalidOperationException("Stack is empty.");
+#endif
 
             return ref _buffer[_count - 1];
         }
@@ -199,8 +204,10 @@ namespace ECS.App.NativeStructures
 
         private void CheckCreated()
         {
+#if DEBUG
             if (!_isCreated)
                 throw new InvalidOperationException("NativeStack is not created or already disposed.");
+#endif
         }
 
         public struct Enumerator : IDisposable
