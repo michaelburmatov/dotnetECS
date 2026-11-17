@@ -53,9 +53,10 @@ public unsafe struct NativeList<T> : IDisposable where T : unmanaged
 
         T* newBuffer = NativeMemory.Allocate<T>(newCapacity);
 
-        if (Buffer != null && Length > 0)
+        if (Buffer != null)
         {
-            NativeMemory.Copy(Buffer, newBuffer, Length);
+            if (Length > 0)
+                NativeMemory.Copy(Buffer, newBuffer, Length);
             NativeMemory.Free(Buffer);
         }
 

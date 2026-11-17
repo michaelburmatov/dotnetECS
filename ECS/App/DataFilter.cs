@@ -34,8 +34,8 @@ namespace ECS.App
         private readonly IntPtr _h1;
         private readonly IntPtr _h2;
 
-        private NativeList<uint> _matches;   // плотный список entityId с обоими компонентами
-        private SparseSet<uint> _position;   // entityId -> индекс в _matches (O(1) удаление)
+        private NativeList<uint>* _matches;   // плотный список entityId с обоими компонентами
+        private SparseSet<uint>* _position;   // entityId -> индекс в _matches (O(1) удаление)
         private bool _disposed;
 
         /// <summary>Счётчик структурных изменений (для DEBUG-проверки итерации).</summary>
@@ -47,24 +47,24 @@ namespace ECS.App
             _set2 = set2;
             _h1 = h1;
             _h2 = h2;
-            _matches = new NativeList<uint>(16);
-            _position = new SparseSet<uint>(16);
+            _matches = (NativeList<uint>*)NativeMemory.Package(new NativeList<uint>(16));
+            _position = (SparseSet<uint>*)NativeMemory.Package(new SparseSet<uint>(16));
             _disposed = false;
             Version = 0;
             Rebuild();
         }
 
-        public long Count => _matches.Length;
+        public long Count => _matches->Length;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public uint EntityAt(long matchIndex) => _matches[matchIndex];
+        public uint EntityAt(long matchIndex) => _matches[0][matchIndex];
 
         // O(1): одна загрузка entityId + sparse-lookup (Sparse[e] -> Data[idx-1])
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T1 GetFirst(long matchIndex) => ref _set1->Get(_matches[matchIndex]);
+        public ref T1 GetFirst(long matchIndex) => ref _set1->Get(_matches[0][matchIndex]);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T2 GetSecond(long matchIndex) => ref _set2->Get(_matches[matchIndex]);
+        public ref T2 GetSecond(long matchIndex) => ref _set2->Get(_matches[0][matchIndex]);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T1 FirstByEntity(uint entityId) => ref _set1->Get(entityId);
@@ -78,8 +78,8 @@ namespace ECS.App
         /// </summary>
         public void Rebuild()
         {
-            _matches.Length = 0;
-            _position.Clear();
+            _matches->Length = 0;
+            _position->Clear();
 
             if (_set1->Data.Length <= _set2->Data.Length)
             {
@@ -108,14 +108,14 @@ namespace ECS.App
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Append(uint entityId)
         {
-            _position.Add(entityId, (uint)_matches.Length);
-            _matches.Add(entityId);
+            _position->Add(entityId, (uint)_matches->Length);
+            _matches->Add(entityId);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void TryAddMatch(uint entityId)
         {
-            if (_position.Has(entityId))
+            if (_position->Has(entityId))
                 return;
 
             Append(entityId);
@@ -125,19 +125,19 @@ namespace ECS.App
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void RemoveMatch(uint entityId)
         {
-            if (!_position.TryGet(entityId, out uint index))
+            if (!_position->TryGet(entityId, out uint index))
                 return;
 
-            long last = _matches.Length - 1;
+            long last = _matches->Length - 1;
             if (index != last)
             {
-                uint moved = _matches[last];
-                _matches[index] = moved;
-                _position.Add(moved, index);   // upsert: правим позицию переехавшей сущности
+                uint moved = _matches[0][last];
+                _matches[0][index] = moved;
+                _position->Add(moved, index);   // upsert: правим позицию переехавшей сущности
             }
 
-            _matches.Length = last;
-            _position.Remove(entityId);
+            _matches->Length = last;
+            _position->Remove(entityId);
             Version++;
         }
 
@@ -161,9 +161,12 @@ namespace ECS.App
                 return;
 
             _disposed = true;
-            _matches.Dispose();
-            _position.Dispose();
+            _matches->Dispose();
+            NativeMemory.Free(_matches);
+            _position->Dispose();
+            NativeMemory.Free(_position);
             Version++;
+
         }
     }
 }

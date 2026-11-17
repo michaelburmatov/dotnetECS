@@ -10,7 +10,6 @@ namespace WindowsHost.ECS.Systems
     {
         public void Update(ref ManagerECS manager)
         {
-            var sw = Stopwatch.StartNew();
 
             //if (manager.TryGetCount<Position>(out uint posCount))
             //{
@@ -84,7 +83,6 @@ namespace WindowsHost.ECS.Systems
             //    }
             //}
 
-            sw.Stop();
 
             //Console.WriteLine($"MovementSystem: {sw.Elapsed.TotalMilliseconds:F3}ms");
         }

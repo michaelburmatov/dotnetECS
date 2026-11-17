@@ -76,5 +76,13 @@ namespace ECS.App.NativeStructures
             for (long i = 0; i < count; i++)
                 ptr[i] = default;
         }
+
+        public static IntPtr Package<T>(T element)
+    where T : unmanaged
+        {
+            var ptr = NativeMemory.Allocate<T>(1);
+            *ptr = element;
+            return (IntPtr)ptr;
+        }
     }
 }
