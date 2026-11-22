@@ -13,22 +13,7 @@ namespace WindowsHost.ECS.Systems
 
         public void Update(ref ManagerECS manager)
         {
-            uint count;
-            if (manager.TryGetCount<TestData>(out count))
-            {
-                for (uint i = 0; i < count; i++)
-                {
-                    ref TestData data = ref manager.GetComponentDataRef<TestData>(i);
-                    data.FloatData += (1+i) * 1.432f;
-                    data.Integerdata += (int)((1+i) * 2);
-
-                    if (manager.HaveAdjacentComponentData<TestData, TestAdjacentData>(i))
-                    {
-                        ref var adjacent = ref manager.GetAdjacentComponentDataRef<TestData, TestAdjacentData>(i);
-                        adjacent.FloatData += (1 + i) * 0.5f;
-                    }
-                }
-            }
+            
         }
     }
 }

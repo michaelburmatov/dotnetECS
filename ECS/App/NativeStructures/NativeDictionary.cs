@@ -5,15 +5,6 @@ using System.Diagnostics;
 
 namespace ECS.App.NativeStructures
 {
-    /// <summary>
-    /// Высокопроизводительный словарь для неуправляемых типов (unmanaged),
-    /// использующий separate chaining для обработки коллизий.
-    /// 
-    /// ⚠️ ВАЖНО:
-    /// - Это struct! Не передавайте его по значению! Используйте ref или храните указатель.
-    /// - НЕ является потокобезопасным.
-    /// - НЕ модифицируйте словарь во время итерации (foreach).
-    /// </summary>
     [DebuggerDisplay("Count = {Count}, Capacity = {Capacity}")]
     public struct NativeDictionary<TKey, TValue> : IDisposable
         where TKey : unmanaged
@@ -74,7 +65,6 @@ namespace ECS.App.NativeStructures
                 Initialize(cap);
             }
         }
-
         public int Count => _count;
         public int Capacity => _buckets.IsCreated ? _buckets.Length : 0;
         public bool IsCreated => _buckets.IsCreated && !_isDisposed;
@@ -183,6 +173,20 @@ namespace ECS.App.NativeStructures
         {
             CheckCreated();
             return FindIndex(key) >= 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetRawEntry(int slot, out TKey key, out TValue value)
+        {
+            if ((uint)slot < (uint)_buckets.Length && _hashes[slot] >= 0)
+            {
+                key = _keys[slot];
+                value = _values[slot];
+                return true;
+            }
+            key = default;
+            value = default;
+            return false;
         }
 
         public bool TryGetValue(TKey key, out TValue value)

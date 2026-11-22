@@ -63,31 +63,21 @@ namespace WindowsHost.States
 
                 ref var manager = ref mainWorld.GetManager();
 
-                if (manager.TryGetCount<Position>(out uint count))
+                var filter = manager.GetFilter<Position, Velocity>();
+                var filter2 = manager.GetFilter<Position, Health>();
+
+                for (uint i = 0; i < Math.Min(10, filter.Count); i++)
                 {
-                    for (uint i = 0; i < Math.Min(10, count); i++)
-                    {
-                        ref var pos = ref manager.GetComponentDataRef<Position>(i);
-                        Console.Write($"Entity {i,5}: {pos}");
+                    ref var pos = ref filter.GetFirst(i);
+                    Console.Write($"Entity {i,5}: {pos}");
 
-                        if (manager.HaveAdjacentComponentData<Position, Velocity>(i))
-                        {
-                            ref var vel = ref manager.GetAdjacentComponentDataRef<Position, Velocity>(i);
-                            Console.Write($" {vel}");
-                        }
-                        else
-                        {
-                            Console.Write(" [No Velocity]");
-                        }
+                    ref var vel = ref filter.GetSecond(i);
+                    Console.Write($" {vel}");
 
-                        if (manager.HaveAdjacentComponentData<Position, Health>(i))
-                        {
-                            ref var health = ref manager.GetAdjacentComponentDataRef<Position, Health>(i);
-                            Console.Write($" {health}");
-                        }
+                    //ref var health = ref filter2.GetSecond(i);
+                    //Console.Write($" {health}");
 
-                        Console.WriteLine();
-                    }
+                    Console.WriteLine();
                 }
 
                 stateMachine.Stop();

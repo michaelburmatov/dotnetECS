@@ -3,47 +3,50 @@ using System.Runtime.CompilerServices;
 
 namespace ECS.App.NativeStructures.Sparse
 {
-    public unsafe struct SparseSet<T> where T : unmanaged
+    public unsafe struct SparseSet : IDisposable
     {
         public NativeList<uint> Sparse;
         public NativeList<uint> Dense;
-        public NativeList<T> Data;
-
+        public byte* Data;
+        public long DataLength;
+        public long DataCapacity;
+        public int ElementSize;
         private const uint EMPTY_VALUE = uint.MaxValue;
-
-        public SparseSet(long initialCapacity = 16)
+        public SparseSet(int elementSize, long cap = 16)
         {
-            Sparse = new NativeList<uint>(initialCapacity, true, EMPTY_VALUE);
-            Dense = new NativeList<uint>(initialCapacity, true, EMPTY_VALUE);
-            Data = new NativeList<T>(initialCapacity);
+            ElementSize = elementSize;
+            Sparse = new NativeList<uint>(cap, true, EMPTY_VALUE);
+            Dense = new NativeList<uint>(cap, true, EMPTY_VALUE);
+            Data = (byte*)NativeMemory.Allocate<byte>(cap * elementSize);
+            DataLength = 0; DataCapacity = cap;
+        }
+
+        public void Add<T>(uint e, T v) where T : unmanaged
+        {
+            if (Sparse.Length <= e) { Sparse.EnsureCapacity(e + 1); Sparse.Length = e + 1; }
+            uint slot = Sparse[e];
+            if (slot != uint.MaxValue) { *(T*)(Data + (slot - 1) * ElementSize) = v; return; }
+            if (DataLength >= DataCapacity) Grow();
+            Sparse[e] = (uint)DataLength + 1;
+            Dense.Add(e);
+            *(T*)(Data + DataLength * ElementSize) = v;
+            DataLength++;
+        }
+
+        private void Grow()
+        {
+            long nc = DataCapacity == 0 ? 16 : DataCapacity * 2;
+            Data = (byte*)NativeMemory.Reallocate(Data, nc * ElementSize);
+            DataCapacity = nc;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(uint entityId, T data)
-        {
-            if (Sparse.Length <= entityId)
-            {
-                // геометрический рост вместо Resize ровно под entityId
-                Sparse.EnsureCapacity(entityId + 1);
-                Sparse.Length = entityId + 1;
-            }
-
-            var existingValue = Sparse[entityId];
-            if (existingValue != EMPTY_VALUE)
-            {
-                Data[existingValue - 1] = data;
-                return;
-            }
-
-            uint denseIndex = (uint)Data.Length;
-
-            Sparse[entityId] = denseIndex + 1;
-
-            Dense.Add(entityId);
-            Data.Add(data);
-        }
+        public ref T GetRef<T>(uint e) where T : unmanaged
+            => ref *(T*)(Data + (Sparse[e] - 1) * ElementSize);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Has(uint e) => e < Sparse.Length && Sparse[e] != EMPTY_VALUE;
+
         public void Remove(uint entityId)
         {
             if (entityId >= Sparse.Length)
@@ -70,89 +73,29 @@ namespace ECS.App.NativeStructures.Sparse
             Sparse[entityId] = EMPTY_VALUE;
 
             Dense.Length--;
-            Data.Length--;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T Get(uint entityId)
+        public bool TryGet<T>(uint e, out T value) where T : unmanaged
         {
-#if DEBUG
-            if (entityId >= Sparse.Length)
-                throw new InvalidOperationException($"Entity {entityId} doesn't have component");
-#endif
-            var denseIndexPlusOne = Sparse[entityId];
-#if DEBUG
-            if (denseIndexPlusOne == EMPTY_VALUE)
-                throw new InvalidOperationException($"Entity {entityId} doesn't have component");
-#endif
-            return ref Data.GetRef(denseIndexPlusOne - 1);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Has(uint entityId)
-        {
-            return entityId < Sparse.Length && Sparse[entityId] != EMPTY_VALUE;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(uint entityId, out T data)
-        {
-            if (Has(entityId))
-            {
-                data = Data[Sparse[entityId] - 1];
-                return true;
-            }
-            data = default;
+            if (Has(e)) { value = GetRef<T>(e); return true; }
+            value = default;
             return false;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetRef(uint entityId, out T* dataPtr)
-        {
-            if (Has(entityId))
-            {
-                var denseIndexPlusOne = Sparse[entityId];
-                dataPtr = Data.Buffer + (denseIndexPlusOne - 1);
-                return true;
-            }
-            dataPtr = null;
-            return false;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetDataRef(out T* data, out long count)
-        {
-            if (Data.Buffer == null || Data.Length == 0)
-            {
-                data = null;
-                count = 0;
-                return false;
-            }
-
-            data = Data.Buffer;
-            count = Data.Length;
-            return true;
-        }
-
-        /// <summary>
-        /// Очищает набор за O(count), а не O(maxEntityId): сбрасываем только занятые ячейки Sparse.
-        /// Capacity сохраняется.
-        /// </summary>
-        public void Clear()
-        {
-            for (long i = 0; i < Dense.Length; i++)
-                Sparse[Dense[i]] = EMPTY_VALUE;
-
-            Dense.Length = 0;
-            Data.Length = 0;
-            Sparse.Length = 0;
         }
 
         public void Dispose()
-        {
+        { 
             Sparse.Dispose();
             Dense.Dispose();
-            Data.Dispose();
+            NativeMemory.Free(Data);
+            Data = null;
+        }
+        public void Clear()
+        {
+            for (long i = 0; i < Dense.Length; i++)
+                Sparse[Dense[i]] = uint.MaxValue;
+            Dense.Length = 0;
+            DataLength = 0;
+            Sparse.Length = 0;
         }
     }
 }

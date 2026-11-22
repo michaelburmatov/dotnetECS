@@ -1,8 +1,6 @@
 ﻿using ECS.App;
 using ECS.App.ISystem;
 using WindowsHost.ECS.DataComponent;
-using System.Diagnostics;
-using System.Collections.Specialized;
 
 namespace WindowsHost.ECS.Systems
 {
