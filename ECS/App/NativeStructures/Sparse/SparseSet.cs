@@ -42,37 +42,42 @@ namespace ECS.App.NativeStructures.Sparse
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T GetRef<T>(uint e) where T : unmanaged
-            => ref *(T*)(Data + (Sparse[e] - 1) * ElementSize);
+        {
+#if DEBUG
+            if (e >= Sparse.Length || Sparse[e] == EMPTY_VALUE)
+                throw new InvalidOperationException($"Entity {e} doesn't have component");
+            if (sizeof(T) != ElementSize)
+                throw new InvalidOperationException("ElementSize mismatch");
+#endif
+            return ref *(T*)(Data + (Sparse[e] - 1) * ElementSize);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has(uint e) => e < Sparse.Length && Sparse[e] != EMPTY_VALUE;
 
         public void Remove(uint entityId)
         {
-            if (entityId >= Sparse.Length)
-                return;
+            if (entityId >= Sparse.Length) return;
+            uint slot = Sparse[entityId];
+            if (slot == EMPTY_VALUE) return;
 
-            var denseIndexPlusOne = Sparse[entityId];
+            uint denseIndex = slot - 1;
+            long last = DataLength - 1;
 
-            if (denseIndexPlusOne == EMPTY_VALUE)
-                return;
-
-            uint denseIndex = denseIndexPlusOne - 1;
-            uint lastDenseIndex = (uint)(Dense.Length - 1);
-
-            if (denseIndex != lastDenseIndex)
+            if (denseIndex != last)
             {
-                uint lastEntityId = Dense[lastDenseIndex];
-
+                uint lastEntityId = Dense[last];
                 Dense[denseIndex] = lastEntityId;
-                Data[denseIndex] = Data[lastDenseIndex];
-
+                Buffer.MemoryCopy(
+                    Data + last * ElementSize,
+                    Data + denseIndex * ElementSize,
+                    ElementSize, ElementSize);
                 Sparse[lastEntityId] = denseIndex + 1;
             }
 
             Sparse[entityId] = EMPTY_VALUE;
-
             Dense.Length--;
+            DataLength--;
         }
 
         public bool TryGet<T>(uint e, out T value) where T : unmanaged
@@ -83,7 +88,7 @@ namespace ECS.App.NativeStructures.Sparse
         }
 
         public void Dispose()
-        { 
+        {
             Sparse.Dispose();
             Dense.Dispose();
             NativeMemory.Free(Data);

@@ -34,20 +34,6 @@ namespace ECS.App
             public override int GetHashCode() => unchecked(First.GetHashCode() * 397 ^ Second.GetHashCode());
         }
 
-        internal struct SparseSetHandle
-        {
-            public IntPtr Ptr;
-        }
-        internal struct DataFilterHandle
-        {
-            public IntPtr Ptr;
-        }
-
-        internal struct ListObserversHandle
-        {
-            public IntPtr Ptr;
-        }
-
         public void Dispose()
         {
             for (int s = 0; s < _filters.Capacity; s++)
@@ -124,13 +110,22 @@ namespace ECS.App
         }
         public bool RemoveComponent<T>(Entity entity) where T : unmanaged
         {
-            if (!TryGetContainer<T>(out var container))
-                return false;
-            if (!container->Has(entity.id))
-                return false;
+            if (!TryGetContainer<T>(out var container)) return false;
+            if (!container->Has(entity.id)) return false;
 
             container->Remove(entity.id);
+            NotifyRemoved(GetTypeHandle<T>(), entity.id);
             return true;
+        }
+
+        private void NotifyRemoved(IntPtr h, uint e)
+        {
+            for (int s = 0; s < _filters.Capacity; s++)
+            {
+                if (!_filters.TryGetRawEntry(s, out var key, out var p)) continue;
+                if (key.First == h || key.Second == h)
+                    ((FilterState*)p)->OnRemoved(h, e);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

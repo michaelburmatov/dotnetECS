@@ -43,14 +43,11 @@ namespace ECS.App
             return false;
         }
 
-        public Entity CreateEntity<T>(params T[] componentData) where T : unmanaged
+        public Entity CreateEntity<T>(T componentData) where T : unmanaged
         {
             var entity = new Entity((uint)_entities.Count);
             _entities.Add(entity);
-
-            if (componentData != null)
-                foreach (var component in componentData)
-                    AddComponent(entity, component);
+            AddComponent(entity, componentData);
 
             return entity;
         }
